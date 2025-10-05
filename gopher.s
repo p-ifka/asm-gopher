@@ -1,13 +1,19 @@
+
+#define AF_UNIX 1
+#define SOCK_STREAM 1	
+#define AF_INET 2
+
+	
 	.section .data
 
 rec_buf_len:
 	.long 32
-af_unix:			## socket domain for machine-local communication
-	.long 1
-af_inet:			## socket domain for ipv4
-	.long 2
-sock_stream:			## socket type 
-	.long 1
+#af_unix:			## socket domain for machine-local communication
+#	.long 1
+#af_inet:			## socket domain for ipv4
+#	.long 2
+#sock_stream:			## socket type 
+#	.long 1
 socket_fail_msg:
 	.ascii "socket creation failed: %d\n\0"
 	
@@ -30,9 +36,9 @@ main:				#- main function
 	inc %edi		
 	jmp 1b			
 1:
-	movl $0x167, %eax	## syscall socket ( family, type, protocol)
-	movl af_inet, %ebx	## int family
-	movl sock_stream, %ecx	## int type
+	movl $0x167, %eax	## syscall socket ( family, type, protocol )
+	movl $AF_INET, %ebx	## int family
+	movl $SOCK_STREAM, %ecx	## int type
 	movl $0, %edx		## int protocol
 	int $0x80
 	
