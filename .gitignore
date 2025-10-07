@@ -1,1 +1,6 @@
 build/
+*~
+a.out
+test.*
+*.obj
+*.procd.s
