@@ -1,0 +1,12 @@
+gopher server written in 32-bit x86 assembly
+
+END GOALS
+> parse gopher client requests
+   >> match requests to documents
+> serve static files
+> implement some form of multithreading or forking to handle multiple requests quicker
+> implement some way to cache commonly requested pages according to user discresion
+> ^ make server usable for a variety of uses and configurations without having to modify the source code / recompile
+   >> ex. switch between AF_INET and AF_UNIX
+> have interface on server end ( logs, stats, etc )
+
