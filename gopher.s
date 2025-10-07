@@ -1,4 +1,4 @@
-				#include "const.h"
+#include "const.h"
 
 	.section .data
 
@@ -6,7 +6,7 @@ rec_buf_len:
 	.long 32
 
 default_page:
-	.ascii "i:3\tfake\t(NULL)\r\n0\r\n.\0"
+	.ascii "itext\tfake\t(NULL)\r\n0\r\n.\0"
 
 socket_fail_msg:
 	.ascii "socket creation failed: %d\n\0"
@@ -126,6 +126,7 @@ listen_fail_f:			# listen didn't fail
 	call printf
 	addl $4, %esp
 
+
 	subl $0x10, %esp	# allocate space for sockaddr
 	movl %esp, %eax
 				#-# push arguments for accept
@@ -135,11 +136,12 @@ listen_fail_f:			# listen didn't fail
 	pushl %eax
 	pushl %esi
 
+accept_loop:	
 	movl $SOCKET_CALL, %eax
 	movl $SYS_ACCEPT, %ebx
 	movl %esp, %ecx
 	int $0x80		# call accept()
-	addl $28, %esp
+
 
 	cmp $0x0, %eax
 	jge accept_fail_f
@@ -158,13 +160,19 @@ accept_fail_f:			# accept didn't fail
 	pushl $default_page
 	call str_len
 	movl %eax, %edx
+	addl $4, %esp
 
 	movl $0x4, %eax
 	movl %edi, %ebx
 	movl $default_page, %ecx
 	int $0x80
 
+	movl $0x6, %eax		# close()
+	movl %edi, %ebx		# close client connection
+	int $0x80		# call close()
 
+	jmp accept_loop
+	
 exit_success:
 	movl $0x1, %eax
 	movl $0, %ebx
