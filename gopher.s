@@ -1,9 +1,13 @@
-#include "const.h"
+				#include "const.h"
 
 	.section .data
 
 rec_buf_len:
 	.long 32
+
+default_page:
+	.ascii "i:3\tfake\t(NULL)\r\n0\r\n.\0"
+
 socket_fail_msg:
 	.ascii "socket creation failed: %d\n\0"
 socket_success_msg:
@@ -19,37 +23,38 @@ listen_success_msg:
 accept_fail_msg:
 	.ascii "accept failed: %d\n\0"
 accept_success_msg:
-	.ascii "server accepted\n\0"		
-	
-	
-	
+	.ascii "server accepted\n\0"
+
+
+
 msg:
 	.ascii "the value of x is %d\n\0"
 
 	.section .text
 	.globl main
-	.globl func
+	.globl str_len
+
 
 
 	.type main, @function
 main:				# main function
 	xor %edi, %edi
 1:				# write zeroed buffer to stack of length rec_buf_len
-	cmp rec_buf_len, %edi	
+	cmp rec_buf_len, %edi
 	jge 1f
-	pushw $0		
-	inc %edi		
-	inc %edi		
-	jmp 1b			
+	pushw $0
+	inc %edi
+	inc %edi
+	jmp 1b
 1:
 				#-# push arguments for socket socket
 				# >(int domain, int type, int protocol)
 	pushl $0		# int protocol
-	pushl $SOCK_STREAM	# int type 
+	pushl $SOCK_STREAM	# int type
 	pushl $AF_INET		# int domain
-	
+
 	movl $SOCKET_CALL, %eax
-	movl $SYS_SOCKET, %ebx	
+	movl $SYS_SOCKET, %ebx
 	movl %esp, %ecx
 	int $0x80		# call socket ()
 	addl $12, %esp		# clear args from stack
@@ -63,29 +68,29 @@ socket_fail_t:			# show socket fail message and quit
 	jmp exit_err
 socket_fail_f:			# socket didn't fail
 	movl %eax, %esi
-	pushl $socket_success_msg 
+	pushl $socket_success_msg
 	call printf
 	addl $4, %esp
-	
+
 				#-# push sockaddr values to stack
 	pushl $0x0		# char sin_zero[8]
 	pushl $0x0		# ^
 	pushl $INADDR_ANY	# struct in_addr sin_addr
-	pushw $0x901f		# in_port_t sin_port : 0x46(70) in network byte order
+	pushw $0x4600		# in_port_t sin_port : 0x46(70) in network byte order
 	pushw $AF_INET		# sa_family_t sin_family
 	movl %esp, %ebx
 				#-# push arguments for bind
-				# >(int sockfd, const struct sockaddr *addr, socklen_t addrlen) 
+				# >(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	pushl $16		# sizeof struct sockaddr (16 bytes - 128 bits)
 	pushl %ebx		# pointer to sockaddr
 	pushl %esi		# sockfd (return value from socket())
 
-	movl $SOCKET_CALL, %eax		
+	movl $SOCKET_CALL, %eax
 	movl $SYS_BIND, %ebx
-	movl %esp, %ecx	
+	movl %esp, %ecx
 	int $0x80		# call bind()
 	addl $24, %esp
-	
+
 
 	cmp $0x0, %eax
 	jge bind_fail_f
@@ -95,7 +100,7 @@ bind_fail_t:			# show bind fail msg and quit
 	call printf
 	jmp exit_err
 bind_fail_f:			# bind didn't fail
-	pushl $bind_success_msg	
+	pushl $bind_success_msg
 	call printf
 	addl $4, %esp
 
@@ -144,14 +149,23 @@ accept_fail_t:			# show accept fail msg and quit
 	call printf
 	jmp exit_err
 accept_fail_f:			# accept didn't fail
+	movl %eax, %edi
+	
 	pushl $accept_success_msg
 	call printf
 	addl $4, %esp
 
-	
-	
-	
-exit_success:	
+	pushl $default_page
+	call str_len
+	movl %eax, %edx
+
+	movl $0x4, %eax
+	movl %edi, %ebx
+	movl $default_page, %ecx
+	int $0x80
+
+
+exit_success:
 	movl $0x1, %eax
 	movl $0, %ebx
 	int $0x80
@@ -161,4 +175,27 @@ exit_err:
 	movl $1, %ebx
 	int $0x80
 	ret
+
+	.type str_len, @function
+### str_len(char *str) << return(->%eax) the length of data from pointer *str until the first null byte >>
+str_len:
+	pushl %ebp		# save ebp
+	pushl %esi		# save esi
+	pushl %ebx		# save ebx
+	movl %esp, %ebp
+
+	movl 16(%ebp), %ebx	# *str into ebx
+	xor %esi, %esi		# set esi to 0
+1:
+	cmpb $0x0, (%ebx, %esi, 1)
+	je 1f			# byte = 0 : jump to end
+	inc %esi
+	jmp 1b			# byte != 0 : jump to start
+1:				# null byte found: end function
+	movl %esi, %eax
+	movl %ebp, %esp
+	pop %ebx		# restore ebx
+	popl %esi		# restore esi
+	popl %ebp		# restore ebp
+	ret			# return
 	
