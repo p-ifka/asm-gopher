@@ -125,7 +125,8 @@ listen_fail_f:			# listen didn't fail
 	movl %esp, %eax
 				#-# push arguments for accept
 				# >(int sockfd, struct sockaddr *_Nullable restrict addr, socklen_t *_Nullable restrict addrlen)
-	pushl $16
+	pushl $0x10
+	pushl %esp
 	pushl %eax
 	pushl %esi
 
