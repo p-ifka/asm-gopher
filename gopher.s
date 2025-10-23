@@ -2,12 +2,35 @@
 
 	.section .data
 
+
+	
 rec_buf_len:
 	.long 32
+port:
+	.short 70
+
 
 default_page:
-	.ascii "itext\tfake\t(NULL)\r\n0\r\n.\0"
+	.ascii "1floodgap home\t/home\tgopher.floodgap.com\t70\r\nitext\tfake\t(NULL)\t0\r\n.\0"
 
+
+help_msg:
+	.ascii "Usage:\n"\
+	" %s [options] [src-dir]\n\n"\
+	"start gopher server. serve files from src-dir.\n\n"\
+	"Options:\n"\
+	" -h, --help         display this help\n"\
+	" -t, --test         run server on port 8080\n"\
+	"\0"
+unknown_char_option_msg:
+	.ascii "invalid option --  %c\n"\
+	"try \'%s -h\' for more information\n\0"
+
+unknown_word_option_msg:
+	.ascii "invalid option --  %s\n"\
+	"try \'%s -h\' for more information\n\0"
+
+	
 socket_fail_msg:
 	.ascii "socket creation failed: %d\n\0"
 socket_success_msg:
@@ -29,17 +52,232 @@ accept_success_msg:
 
 msg:
 	.ascii "the value of x is %d\n\0"
+fmtstr_s:
+	.ascii "s: %s\n\0"
+fmtstr_d:
+	.ascii "d: %d\n\0"
+newline:
+	.ascii "\n\0"
 
 	.section .text
 	.globl main
-	.globl str_len
+	.globl parse_args
+	.globl hton_w
+
+	.type parse_args, @function
+### parse_args (int argc, char *argv) << read arguments >>
+parse_args:
+
+	pushl %ebp
+	movl %esp, %ebp
+
+	movl 8(%ebp), %ebx	# argc 
+	movl 12(%ebp), %ecx	# argv
+	
+	movl 0(%ecx), %ecx
+
+	pushl %ecx		# save program name pointer
+	call str_len
+	addl %eax, %ecx		# move forward to next argument 
+	inc %ecx
+	
+	movl $1, %esi
+	subl $4, %esp
+	#  pushl %ebx
+	#  pushl $fmtstr_d
+	#  call printf
+	#  movl %edi, 4(%esp)
+	#  call printf
+	#  addl $8, %esp
 
 
+1:				# for edi=0; edi<argc; edi++
+	cmp %ebx, %esi
+	jge 1f
 
+	cmpb $45, 0(%ecx)
+	je parse_option_arg
+	jmp parse_next_arg
+
+	parse_option_arg:
+		xor %edx, %edx
+		movb 1(%ecx), %dl # move next character into %dl
+		cmpb $0x68, %dl	# lowercase h
+		je option_help
+		cmpb $0x74, %dl	# lowercase d
+		je option_test_port
+		jmp coption_unknown
+		
+
+	option_help:		# help option
+		pushl 4(%esp)
+		pushl $help_msg
+		call printf
+		jmp exit_success
+
+	coption_unknown:	# unknown character argument
+		pushl 4(%esp)	# program name
+		pushl %edx	# option letter
+		pushl $unknown_char_option_msg
+		call printf
+		jmp exit_err
+	option_test_port:	# test port option
+		
+	
+	parse_next_arg:
+	
+	movl %ecx, 0(%esp)
+	call strlen
+	addl %eax, %ecx
+	inc %ecx
+	inc %esi
+	jmp 1b
+	
+	
+	
+1:
+	pushl %esi
+	pushl $fmtstr_d
+	call printf
+	addl $8, %esp
+	
+	movl %ebp, %esp
+	popl %ebp
+	ret
+	
+
+
+	
+	## pushl %ebp
+	## movl %esp, %ebp
+
+	## movl 8(%ebp), %ebx	# argc
+	## movl 12(%ebp), %ecx	# argv
+
+
+	
+	## ## pushl %eax
+	## ## pushl $msg
+	## ## call printf
+	## ## addl $4, %esp
+	
+	## xor %esi, %esi
+	## inc %esi
+	## xor %edx, %edx
+	## movl 0(%ecx), %ecx	# ebx now points to *argv[0]
+	## pushl %ecx		# save program name pointer
+	## pushl $fmtstr_s
+	## call printf
+	
+	## pushl %ecx
+	## call str_len
+	## ## addl %eax, %ecx
+	## ## inc %ecx
+	## addl $4, %esp
+
+	## call printf
+	
+	## 1:			# loop for each arg
+	## cmp %ebx, %esi
+	## jge 1f
+
+
+	## ## movl 4(%esp), %ecx
+	## ## call printf
+	## ## cmpb $45, 0(%ecx)	# check if first char of arg is '-'
+	## ## je parse_option_arg	# if first char is '-', parse as option
+	## ## jmp parse_arg_next
+	
+
+	## ## parse_option_arg:
+	## 	## movb 1(%ecx), %dl # get next char of arg
+	## 	## cmpb $45, %dl	  # if char is also '-' parse as word
+	## 	## je parse_option_word
+	## 	## cmpb $104, %dl	# if char is 'h', display help
+	## 	## je option_help
+	## 	## cmpb $99, %dl	# if char is 'c', do nothing, continue
+	## 	## je parse_arg_next
+	## 	## jmp option_unknown
+
+	## ## parse_option_word:
+		
+	## ## option_help:
+	## 	## pushl $help_msg
+	## 	## call printf
+	## 	## jmp exit_success
+
+	## ## option_unknown:
+	## 	## pushl %edx
+	## 	## pushl $unknown_char_option_msg
+	## 	## call printf
+	## 	## jmp exit_err
+		
+	
+	
+	## #  pushl %ebx
+	## #  call printf
+	## #  movl $newline, 0(%esp)
+	## #  call printf
+	## #  addl $4, %esp
+	
+	## parse_arg_next:
+	
+	## inc %esi
+	## ## addl $4, %ecx
+	## ## jmp 1b
+	
+	## 1:			
+
+	## movl %ebp, %esp
+	## popl %ebp
+	## ret
+	
+
+	.type hton_w, @function
+	hton_w:			# hton_w (short x) << return short x in reverse byte order >>
+		pushl %ebp
+		movl %esp, %ebp
+		xor %eax, %eax
+		movb 8(%ebp), %ah
+		movb 9(%ebp), %al
+
+		popl %ebp
+		ret
+	
+	
 	.type main, @function
 main:				# main function
 	xor %edi, %edi
+	
+	pushl 8(%esp)		# argv (+8 from %esp)
+	pushl 8(%esp)		# argc (+4 from %esp)
+	call parse_args
+
+	
+
+	#  movl 0(%ebx), %ebx
+	#  pushl %ebx
+	#  call str_len
+	#  addl %eax, %ebx
+	#  inc %ebx
+	#  pushl %ebx
+	#  push $fmtstr_s
+	#  call printf
+
+
+
+
+
+	
+	jmp exit_success
+	## pushl 8(%esp)		# argv (+8 from %esp)
+	## pushl 8(%esp)		# argc (+4 from %esp)
+	## call parse_args
+	## addl $8, %esp
+
+
 1:				# write zeroed buffer to stack of length rec_buf_len
+
 	cmp rec_buf_len, %edi
 	jge 1f
 	pushw $0
@@ -47,7 +285,7 @@ main:				# main function
 	inc %edi
 	jmp 1b
 1:
-				#-# push arguments for socket socket
+				#-# push arguments fxor socket socket
 				# >(int domain, int type, int protocol)
 	pushl $0		# int protocol
 	pushl $SOCK_STREAM	# int type
@@ -184,26 +422,3 @@ exit_err:
 	int $0x80
 	ret
 
-	.type str_len, @function
-### str_len(char *str) << return(->%eax) the length of data from pointer *str until the first null byte >>
-str_len:
-	pushl %ebp		# save ebp
-	pushl %esi		# save esi
-	pushl %ebx		# save ebx
-	movl %esp, %ebp
-
-	movl 16(%ebp), %ebx	# *str into ebx
-	xor %esi, %esi		# set esi to 0
-1:
-	cmpb $0x0, (%ebx, %esi, 1)
-	je 1f			# byte = 0 : jump to end
-	inc %esi
-	jmp 1b			# byte != 0 : jump to start
-1:				# null byte found: end function
-	movl %esi, %eax
-	movl %ebp, %esp
-	pop %ebx		# restore ebx
-	popl %esi		# restore esi
-	popl %ebp		# restore ebp
-	ret			# return
-	
