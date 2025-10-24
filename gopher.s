@@ -11,7 +11,9 @@ port:
 
 
 default_page:
-	.ascii "1floodgap home\t/home\tgopher.floodgap.com\t70\r\nitext\tfake\t(NULL)\t0\r\n.\0"
+	.ascii "1floodgap home\t/home\tgopher.floodgap.com\t70\r\n"\
+	"itext\tfake\t(NULL)\t0\r\n"\
+	".\0"
 
 
 help_msg:
@@ -81,17 +83,9 @@ parse_args:
 	addl %eax, %ecx		# move forward to next argument 
 	inc %ecx
 	
-	movl $1, %esi
-	subl $4, %esp
-	#  pushl %ebx
-	#  pushl $fmtstr_d
-	#  call printf
-	#  movl %edi, 4(%esp)
-	#  call printf
-	#  addl $8, %esp
 
-
-1:				# for edi=0; edi<argc; edi++
+	movl $1, %esi		# start arg counter at 1
+1:				# esi<argc; esi++
 	cmp %ebx, %esi
 	jge 1f
 
@@ -122,12 +116,14 @@ parse_args:
 		call printf
 		jmp exit_err
 	option_test_port:	# test port option
+		movl $8080, port
+		jmp parse_next_arg
 		
 	
 	parse_next_arg:
-	
-	movl %ecx, 0(%esp)
-	call strlen
+	pushl %ecx
+	call str_len
+	addl $4, %esp
 	addl %eax, %ecx
 	inc %ecx
 	inc %esi
@@ -252,6 +248,7 @@ main:				# main function
 	pushl 8(%esp)		# argv (+8 from %esp)
 	pushl 8(%esp)		# argc (+4 from %esp)
 	call parse_args
+	addl $8, %esp
 
 	
 
@@ -269,7 +266,6 @@ main:				# main function
 
 
 	
-	jmp exit_success
 	## pushl 8(%esp)		# argv (+8 from %esp)
 	## pushl 8(%esp)		# argc (+4 from %esp)
 	## call parse_args
@@ -310,11 +306,14 @@ socket_fail_f:			# socket didn't fail
 	call printf
 	addl $4, %esp
 
+	pushw port
+	call hton_w
+
 				#-# push sockaddr values to stack
 	pushl $0x0		# char sin_zero[8]
 	pushl $0x0		# ^
 	pushl $INADDR_ANY	# struct in_addr sin_addr
-	pushw $0x4600		# in_port_t sin_port : 0x46(70) in network byte order
+	pushw %ax		# in_port_t sin_port
 	pushw $AF_INET		# sa_family_t sin_family
 	movl %esp, %ebx
 				#-# push arguments for bind
